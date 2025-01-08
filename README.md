@@ -1,0 +1,1 @@
+# Stateful-k8s-app-logging
