@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  type: ClusterIP # Vai servir apenas internamente
+  selector:
+    app: redis # Talvez desse para colocar um outro app (outra label) para representar o logger
+    # Service tem acesso a todos os deployments aparentemente. Na prática está fazendo matching na label do pod
+  ports:
+    - name: redis-svc-port
+      port: 6379
+      targetPort: 6380
+    # Precisaria de algum SMR aplicado. Na prática o k8s não replica rm múltiplas portas, mas faz load balancing.
+    # Então para mim a solução seria ou ter SMR no cluster, ou usar sidecar. Ou criar um custom k8s controller?
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis-server-pod
+        image: redis
+        ports:
+        - containerPort: 6379
+      initContainers:
+      - name: logger-pod
+        image: tcp-proxy-go
+        restartPolicy: Always # Obrigatório para execução concorrente ocorrer.
+                              # Se não, redis esperaria o logger terminar todo seu processamento antes de iniciar.
+        imagePullPolicy: Never # Solução quick and dirty para acessar o registry interno
+        ports:
+        - containerPort: 6380
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis-client
+  template:
+    metadata:
+      labels:
+        app: redis-client
+    spec:
+      containers:
+      - name: redis-client-pod
+        image: redis
+
+---
+
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: logger-deployment
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: redis
+#   template:
+#     metadata:
+#       labels:
+#         app: redis
+#     spec:
+#       containers:
+#       - name: logger-pod
+#         image: tcp-server-go
+#         imagePullPolicy: Never # Solução quick and dirty para acessar o registry interno
+#         ports:
+#         - containerPort: 6379
+# 

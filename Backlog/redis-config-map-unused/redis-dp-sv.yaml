@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+spec:
+  type: NodePort
+  selector:
+    app: redis # Talvez desse para colocar um outro app para representar o logger
+  ports:
+    - name: redis-svc
+      port: 6379
+      targetPort: 6379
+    # Ou é isso, ou precisaria de algum SMR aplicado
+    # - name: logger-svc
+     # port: 6379
+     # targetPort: 6379
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis-pod
+        image: redis
+        ports:
+          - containerPort: 6379
+        # Montando o volume no pod ao meu container com o redis
+#       volumeMounts:
+#         - name: redis-config-volume
+#           mountPath: /redis-master
+#     # Criando um volume e atrelando ele ao meu configMap
+#     volumes:
+#       - name: redis-config-volume
+#         configMap:
+#           name: redis-config
+#           items:
+#             # Pega o atributo redis-config-data e salva em um arquivo chamado redis.conf
+#             - key: redis-config-data
+#               path: redis.conf 
+#               # Então na prática ficará salvo em /redis-master/redis-conf
+
+
+# ---
+
+#apiVersion: apps/v1
+#kind: Deployment
+#metadata:
+#  name: logger-deployment
+#spec:
+#  replicas: 1
+#  selector:
+#    matchLabels:
+#      app: logger
+#    template:
+#      metadata:
+#        labels:
+#          app: logger
+#      spec:
+#        containers:
+#        - name: logger-pod
+#          image:
+#          ports:
+#          - containerPort: 6379
