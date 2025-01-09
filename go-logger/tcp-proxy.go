@@ -18,75 +18,81 @@ func logAndForwardCommunication(clientConn net.Conn, appConn net.Conn, fd *os.Fi
 	requestBuf := make([]byte, 65535)
 	responseBuf := make([]byte, 65535)
 
+	// DEBUGGING
+	fdD, err := os.OpenFile("debug.txt", os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Error opening log file:", err)
+		return
+	}
+	defer fdD.Close()
+
 	writer := bufio.NewWriter(fd)
 
 	// Criando canais
-	clientChan := make(chan []byte)
-	appChan := make(chan []byte)
+	// clientChan := make(chan []byte)
+	// appChan := make(chan []byte)
 	done := make(chan bool)
 
-	// Ler os dados do cliente e coloca no canal
+	// Vai ficar escutando a clientConn e mandando os dados para clientChan
 	go func() {
 		for {
+			fdD.Write([]byte("Debug primário\n"))
 			n, err := clientConn.Read(requestBuf)
 			if err != nil {
 				if err.Error() == "EOF" {
 					done <- true // Client connection closed
 				}
-				writer.Write([]byte("goroutine clientConn finalizada"))
-				writer.Flush()
+				// writer.Write([]byte("goroutine clientConn finalizada"))
+				// writer.Flush()
+				fdD.Write([]byte("goroutine clientConn finalizada\n"))
 				return
 			}
-			clientChan <- requestBuf[:n]
+			// clientChan <- requestBuf[:n]
+			fdD.Write([]byte("Debug secundário\n"))
+			writer.Write(requestBuf[:n])
+			writer.Write([]byte("\n"))
+			writer.Flush()
+
+			fdD.Write([]byte("Debug terciário\n"))
+			// Forwarding da mensagem para o server
+			_, err = appConn.Write(requestBuf[:n])
+			if err != nil {
+				fmt.Println("Error forwarding to app:", err)
+				fdD.Write([]byte("Error forwarding to app\n"))
+				return
+			}
+			fdD.Write([]byte("Debug quarternário\n"))
 		}
 	}()
 
-	// Ler os dados do servidor e coloca no canal
+	// Vai ficar escutando a appConn e mandando os dados para appChan
 	go func() {
 		for {
+			// fdD.Write([]byte("Debug primário\n"))
 			n, err := appConn.Read(responseBuf)
 			if err != nil {
 				if err.Error() == "EOF" {
 					done <- true // App server connection closed
 				}
-				writer.Write([]byte("goroutine appConn finalizada"))
-				writer.Flush()
+				fdD.Write([]byte("goroutine appConn finalizada\n"))
+				// writer.Write([]byte("goroutine appConn finalizada"))
+				// writer.Flush()
 				return
 			}
-			appChan <- responseBuf[:n]
+			// appChan <- responseBuf[:n]
+			// fdD.Write([]byte("Debug secundário\n"))
+			_, err = clientConn.Write(responseBuf[:n])
+			if err != nil {
+				fmt.Println("Error writing to client:", err)
+				fdD.Write([]byte("Error writing to client\n"))
+				return
+			}
+			// fdD.Write([]byte("Debug terciário\n")
+			// FIca esperando termino de conexão no primario
 		}
 	}()
 
-	// Main loop to handle communication
 	for {
-		select {
-		case reqData := <-clientChan:
-			// Log the request data
-			writer.Write(reqData)
-			writer.Write([]byte("\n"))
-			writer.Flush()
-
-			// Forward request data to the application server
-			_, err := appConn.Write(reqData)
-			if err != nil {
-				fmt.Println("Error forwarding to app:", err)
-				return
-			}
-
-		case resData := <-appChan:
-			// Forward the response data to the client
-			_, err := clientConn.Write(resData)
-			if err != nil {
-				fmt.Println("Error writing to client:", err)
-				return
-			}
-
-		case <-done:
-			fmt.Println("Connection closed, shutting down proxy")
-			return
-		default:
-			continue
-		}
 	}
 }
 
@@ -94,7 +100,7 @@ func logAndForwardCommunication(clientConn net.Conn, appConn net.Conn, fd *os.Fi
 func handleIncomingConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 
-	// Opens the log file
+	// Abre o log
 	fd, err := os.OpenFile("log.txt", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println("Error opening log file:", err)
@@ -102,29 +108,19 @@ func handleIncomingConnection(clientConn net.Conn) {
 	}
 	defer fd.Close()
 
-	// Conects to redis-server
+	// Cria a conexão com o redis-server
 	appConn, err := net.Dial("tcp", "localhost:6379")
 	if err != nil {
-		fmt.Println("Error connecting to redis:", err)
+		fmt.Println("Error connecting to app:", err)
 		return
 	}
 	defer appConn.Close()
-
-	/*
-	// Opens the log file
-	fd, err := os.OpenFile("log.txt", os.O_APPEND|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println("Error opening log file:", err)
-		return
-	}
-	defer fd.Close()
-	*/
 
 	// Handle the communication in a non-blocking manner
 	logAndForwardCommunication(clientConn, appConn, fd)
 }
 
-// Listen for incoming connections and spawn handlers for each
+// Espera em loop por novas conexões
 func listenIncomingConnections() {
 	// Listen on port 6380 for incoming connections
 	ln, err := net.Listen("tcp", ":6380")
@@ -147,9 +143,8 @@ func listenIncomingConnections() {
 	}
 }
 
-// Main entry point for the proxy server
 func main() {
-	// Create the log file if it doesn't exist
+	// Cria o log se ele não existe
 	if checkFileNotExists("log.txt") {
 		fd, err := os.Create("log.txt")
 		if err != nil {
@@ -159,6 +154,15 @@ func main() {
 		fd.Close()
 	}
 
-	// Start listening for incoming connections
+	if checkFileNotExists("debug.txt") {
+		fdD, err := os.Create("debug.txt")
+		if err != nil {
+			fmt.Println("Error creating debug file:", err)
+			return
+		}
+		fdD.Close()
+	}
+
+	// Começa a escutar por conexões
 	listenIncomingConnections()
 }
