@@ -4,4 +4,4 @@ minikube kubectl delete -- -f redis-deployments.yaml
 
 sleep 4
 
-docker rmi tcp-proxy-go
+docker rmi tcp-proxy

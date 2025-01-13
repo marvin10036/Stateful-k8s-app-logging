@@ -1,4 +1,4 @@
-FROM golang:1.19
+FROM golang:latest
 
 WORKDIR /app
 
@@ -8,8 +8,8 @@ COPY go.mod ./
 # Pegando o source file
 COPY *.go ./
 
-RUN go build -o ./tcp-proxy
+RUN go build -o tcpProxy .
 
 EXPOSE 6380
 
-CMD ["./tcp-proxy"]
+CMD ["./tcpProxy"]

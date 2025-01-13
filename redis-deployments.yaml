@@ -37,7 +37,7 @@ spec:
         - containerPort: 6379
       initContainers:
       - name: logger-pod
-        image: tcp-proxy-go
+        image: tcp-proxy
         restartPolicy: Always # Obrigatório para execução concorrente ocorrer.
                               # Se não, redis esperaria o logger terminar todo seu processamento antes de iniciar.
         imagePullPolicy: Never # Solução quick and dirty para acessar o registry interno

@@ -1,5 +1,5 @@
 #!/bin/bash
 
-docker build ./go-logger -t tcp-proxy-go && \
+docker build ./logger -t tcp-proxy && \
        	minikube kubectl create -- -f redis-deployments.yaml 
 
