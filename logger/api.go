@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"bufio"
 	"os"
 	"net"
@@ -20,20 +19,29 @@ func recoverApi() {
 }
 
 func recoverLogs(resWriter http.ResponseWriter, request *http.Request) {
+	// DEBUGGING
+	/*
+	fdD, errD := os.Create("apiDebug.txt")
+	if errD != nil {
+		return
+	}
+	defer fdD.Close()
+	*/
+
 	// Awnsering request
 	resWriter.Header().Set("Content=Type", "application/json")
 	json.NewEncoder(resWriter).Encode([]STATUS{{ Status: "OK", }})
 
 	fd, err := os.OpenFile("log.txt", os.O_RDONLY, 0644)
 	if err != nil {
-		fmt.Println("Error opening log file:", err)
+		// Error opening log file
 		return
 	}
 	defer fd.Close()
 
-	serverConn, err := net.Dial("tcp", "localhost:6378")
+	serverConn, err := net.Dial("tcp", "localhost:6379")
 	if err != nil {
-		fmt.Println("Error connecting to server:", err)
+		// Error connecting to the server
 		return
 	}
 	defer serverConn.Close()
@@ -43,23 +51,14 @@ func recoverLogs(resWriter http.ResponseWriter, request *http.Request) {
 	// Setting the split function as ScanLines, essentially setting the scan mode
 	scanner.Split(bufio.ScanLines)
 
-	/*
-	go func() {
-		buf := make([]byte, 65535)
-		// Lê uma vez e fica bloqueado no read
-		serverConn.Read(buf)
-		fmt.Println("asd")
-	}()
-	*/
-
 	for scanner.Scan() {
 		currentLine := []byte(scanner.Text())
-		currentLine = currentLine[:len(currentLine)-1]
+		// TODO Remover coupling to redis protocol later
+		CR := []byte("\r\n")
 
-		fmt.Println(currentLine)
-		_, err = serverConn.Write(currentLine)
+		_, err = serverConn.Write(append(currentLine, CR...))
 		if err != nil {
-			fmt.Println("Erro ao escrever no server")
+			// Error writing to the server
 			return
 		}
 	}

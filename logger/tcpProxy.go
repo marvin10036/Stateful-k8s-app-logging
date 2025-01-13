@@ -78,7 +78,6 @@ func clientSideListener(clientConn net.Conn, serverConn net.Conn, done chan bool
 
 			// Logs the message
 			writer.Write(requestBuf[:n])
-			writer.Write([]byte("\n"))
 			writer.Flush()
 
 			// Forwards message to the server
@@ -132,11 +131,13 @@ func serverSideListener(clientConn net.Conn, serverConn net.Conn, done chan bool
 // Read and forward data from the client to the server, and log communication
 func logAndForwardCommunication(clientConn net.Conn, serverConn net.Conn, fd *os.File) {
 	// DEBUGGING
+	/*
 	fdD, err := os.OpenFile("debug.txt", os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		return
 	}
 	defer fdD.Close()
+	*/
 
 	/*
 	Creating channel so that clientConn may sinalize serverConn about
@@ -185,9 +186,9 @@ func handleIncomingConnection(clientConn net.Conn) {
 
 // Listen to incoming connections in a loop
 func tcpProxy() {
-	// TODO Essa api REST é apenas para teste, pois o acesso ao localhost era
+	// TODO Essa api HTTP é apenas para teste, pois o acesso ao localhost era
 	// limitado ao processo principal do container
-	// go recoverApi()
+	go recoverApi()
 
 	// Listen on port 6380 for incoming connections
 	ln, err := net.Listen("tcp", ":6380")
